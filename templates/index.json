@@ -4,10 +4,10 @@
   "templates": [
     {
       "code": "quiz-rush",
-      "name": "选择题闯关",
+      "name": "éæ©é¢é¯å³",
       "mode": "quiz",
-      "category": "答题",
-      "description": "答对前进，答错扣血提示，进度条 + 结算",
+      "category": "ç­é¢",
+      "description": "ç­å¯¹åè¿ï¼ç­éæ£è¡æç¤ºï¼è¿åº¦æ¡ + ç»ç®",
       "rulesMd": "",
       "entryPath": "index.html",
       "allowedSubjects": [
@@ -30,10 +30,10 @@
     },
     {
       "code": "memory-pairs",
-      "name": "记忆翻牌配对",
+      "name": "è®°å¿ç¿»çéå¯¹",
       "mode": "game-native",
-      "category": "记忆",
-      "description": "翻牌记忆，术语与释义配对消除，计时排名",
+      "category": "è®°å¿",
+      "description": "ç¿»çè®°å¿ï¼æ¯è¯­ä¸éä¹éå¯¹æ¶é¤ï¼è®¡æ¶æå",
       "rulesMd": "",
       "entryPath": "index.html",
       "allowedSubjects": [
@@ -56,10 +56,10 @@
     },
     {
       "code": "sudoku",
-      "name": "数独",
+      "name": "æ°ç¬",
       "mode": "game-native",
-      "category": "益智",
-      "description": "9×9 数独盘面，校验、提示、计时",
+      "category": "çæº",
+      "description": "9Ã9 æ°ç¬çé¢ï¼æ ¡éªãæç¤ºãè®¡æ¶",
       "rulesMd": "",
       "entryPath": "index.html",
       "allowedSubjects": [
@@ -79,10 +79,10 @@
     },
     {
       "code": "synonym-crush",
-      "name": "同义词消消乐",
+      "name": "åä¹è¯æ¶æ¶ä¹",
       "mode": "game-native",
-      "category": "词汇",
-      "description": "同义词组点击配对消除，连锁计分",
+      "category": "è¯æ±",
+      "description": "åä¹è¯ç»ç¹å»éå¯¹æ¶é¤ï¼è¿éè®¡å",
       "rulesMd": "",
       "entryPath": "index.html",
       "allowedSubjects": [
@@ -102,10 +102,10 @@
     },
     {
       "code": "history-monopoly",
-      "name": "历史大富翁",
+      "name": "åå²å¤§å¯ç¿",
       "mode": "hybrid",
-      "category": "棋盘",
-      "description": "掷骰前进，落格答题，答对得地得分",
+      "category": "æ£ç",
+      "description": "æ·éª°åè¿ï¼è½æ ¼ç­é¢ï¼ç­å¯¹å¾å°å¾å",
       "rulesMd": "",
       "entryPath": "index.html",
       "allowedSubjects": [
@@ -128,10 +128,10 @@
     },
     {
       "code": "link-link",
-      "name": "连连看",
+      "name": "è¿è¿ç",
       "mode": "game-native",
-      "category": "配对",
-      "description": "术语释义两两连线，路径判定，限时",
+      "category": "éå¯¹",
+      "description": "æ¯è¯­éä¹ä¸¤ä¸¤è¿çº¿ï¼è·¯å¾å¤å®ï¼éæ¶",
       "rulesMd": "",
       "entryPath": "index.html",
       "allowedSubjects": [
@@ -149,6 +149,34 @@
       "isOfficial": true,
       "author": null,
       "files": [
+        "index.html"
+      ]
+    },
+    {
+      "code": "u1-e2e-mw4pt25o-u9cp",
+      "name": "E2E-mw4pt25o",
+      "mode": "quiz",
+      "category": "E2E",
+      "description": "创作者上传模板",
+      "rulesMd": "e2e 测试",
+      "entryPath": "index.html",
+      "allowedSubjects": [
+        "math"
+      ],
+      "allowedGrades": [
+        "g1",
+        "g2"
+      ],
+      "questionTypes": [
+        "single",
+        "judge"
+      ],
+      "dataKey": "questions",
+      "version": "1.0.0",
+      "isOfficial": false,
+      "author": "管理员",
+      "files": [
+        "manifest.json",
         "index.html"
       ]
     }
