@@ -151,6 +151,33 @@
       "files": [
         "index.html"
       ]
+    },
+    {
+      "code": "u1-e2e-mw4r76cm-l8er",
+      "name": "E2E-mw4r76cm",
+      "mode": "quiz",
+      "category": "E2E",
+      "description": "创作者上传模板",
+      "rulesMd": "e2e 平台代提测试",
+      "entryPath": "index.html",
+      "allowedSubjects": [
+        "math"
+      ],
+      "allowedGrades": [
+        "g1"
+      ],
+      "questionTypes": [
+        "single",
+        "judge"
+      ],
+      "dataKey": "questions",
+      "version": "1.0.0",
+      "isOfficial": false,
+      "author": "管理员",
+      "files": [
+        "manifest.json",
+        "index.html"
+      ]
     }
   ]
 }
