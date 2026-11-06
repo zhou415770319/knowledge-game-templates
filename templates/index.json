@@ -151,30 +151,6 @@
       "files": [
         "index.html"
       ]
-    },
-    {
-      "code": "u1-e2e-68133-gg6q",
-      "name": "E2E测试模板-68133",
-      "mode": "quiz",
-      "category": "社区模板",
-      "description": "e2e 自动投稿测试模板",
-      "rulesMd": "",
-      "entryPath": "index.html",
-      "allowedSubjects": [
-        "math"
-      ],
-      "allowedGrades": [],
-      "questionTypes": [
-        "single"
-      ],
-      "dataKey": "questions",
-      "version": "1.0.1",
-      "isOfficial": false,
-      "author": "管理员",
-      "files": [
-        "manifest.json",
-        "index.html"
-      ]
     }
   ]
 }
