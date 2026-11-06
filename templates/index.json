@@ -8,7 +8,7 @@
       "mode": "quiz",
       "category": "答题",
       "description": "答对前进，答错扣血提示，进度条 + 结算",
-      "rulesMd": "",
+      "rulesMd": "## 怎么玩\n逐题作答的选择题闯关：答对前进得分，答错给出正确答案提示，顶部进度条显示闯关进度，最后结算得分与用时。\n\n## 需要哪些数据\n单选题（single）或判断题（judge），每题包含题干、选项（判断题为对/错）、答案、解析。\n\n## 数据生成规则\n- 题目来自知识点题库快照，按难度 ±1 抽取，使用次数少的优先；\n- 服务端判分，题目下发时不含答案与解析；\n- 同一知识点题目使用 3 次后自动淘汰并触发 AI 补题。\n\n## 接入方式\niframe 加载 `/t/quiz-rush/index.html`，通过 postMessage 协议 kp-game-v1 通信：接收 HOST_INIT（题目数据）→ 发送 GAME_READY → 玩家作答 → 发送 GAME_RESULT（逐题答案）→ 服务端判分结算。",
       "entryPath": "index.html",
       "allowedSubjects": [
         "math",
@@ -34,7 +34,7 @@
       "mode": "game-native",
       "category": "记忆",
       "description": "翻牌记忆，术语与释义配对消除，计时排名",
-      "rulesMd": "",
+      "rulesMd": "## 怎么玩\n翻牌记忆配对：牌面为术语与释义（或算式与结果），两张牌配对成功即消除，全部消除后按用时与步数结算。\n\n## 需要哪些数据\n配对数据（pairs）：每对包含左侧元素（术语/题干）与右侧元素（释义/答案文本），由单选、判断或填空题自动转换。\n\n## 数据生成规则\n- 题库题目的答案文本会被转换为配对元素（pair 模式），key 用于服务端判分；\n- 元素随机洗牌排版，保证配对唯一；\n- 题目下发时不含 answer 明文（以元素文本形式出现）。\n\n## 接入方式\niframe 加载 `/t/memory-pairs/index.html`，postMessage 协议 kp-game-v1：HOST_INIT 附带 pairsSource（含 key）→ GAME_READY → GAME_RESULT 逐题上报 key。",
       "entryPath": "index.html",
       "allowedSubjects": [
         "math",
@@ -60,7 +60,7 @@
       "mode": "game-native",
       "category": "益智",
       "description": "9×9 数独盘面，校验、提示、计时",
-      "rulesMd": "",
+      "rulesMd": "## 怎么玩\n经典 9×9 数独：从题库中的数字谜题生成盘面，点击格子填数，支持校验、提示与计时，完成即结算。\n\n## 需要哪些数据\n填空题（fill）：题干为盘面描述，答案为完整解（按行拼接的数字串），适用于数学学科。\n\n## 数据生成规则\n- 仅限数学知识点（学科限制）；\n- 题目难度对应挖空数量：易 3×3 局部、中标准 9×9、难含对角约束；\n- 服务端按答案精确匹配判分。\n\n## 接入方式\niframe 加载 `/t/sudoku/index.html`，postMessage 协议 kp-game-v1：HOST_INIT → GAME_READY → GAME_RESULT。",
       "entryPath": "index.html",
       "allowedSubjects": [
         "math"
@@ -83,7 +83,7 @@
       "mode": "game-native",
       "category": "词汇",
       "description": "同义词组点击配对消除，连锁计分",
-      "rulesMd": "",
+      "rulesMd": "## 怎么玩\n同义词消消乐：屏幕上散布词语气泡，点击两个互为同义词的词语即可消除，连锁消除有额外加分，限时结算。\n\n## 需要哪些数据\n配对数据（pairs）：词语与它的同义词，由语文题库的 matching/single 题自动转换。\n\n## 数据生成规则\n- 仅限语文学科（学科限制）；\n- 每局从题库抽取 6–8 对同义词，随机散布；\n- 答案文本即游戏元素，判分按配对 key 上报。\n\n## 接入方式\niframe 加载 `/t/synonym-crush/index.html`，postMessage 协议 kp-game-v1：HOST_INIT 附带 pairsSource → GAME_READY → GAME_RESULT。",
       "entryPath": "index.html",
       "allowedSubjects": [
         "chinese"
@@ -106,7 +106,7 @@
       "mode": "hybrid",
       "category": "棋盘",
       "description": "掷骰前进，落格答题，答对得地得分",
-      "rulesMd": "",
+      "rulesMd": "## 怎么玩\n知识大富翁棋盘：掷骰前进，落格触发答题（答对得金币/购买地产），最终按资产结算排名。\n\n## 需要哪些数据\n单选或判断题（single/judge），题干与选项将展示在落格弹窗中。\n\n## 数据生成规则\n- 题目按知识点快照抽取，难度混合分布；\n- 棋盘格随机分布事件格/题目格/机会格；\n- 服务端判分，成绩与用时照常落库。\n\n## 接入方式\niframe 加载 `/t/history-monopoly/index.html`，postMessage 协议 kp-game-v1：HOST_INIT → GAME_READY → GAME_RESULT。",
       "entryPath": "index.html",
       "allowedSubjects": [
         "math",
@@ -132,7 +132,7 @@
       "mode": "game-native",
       "category": "配对",
       "description": "术语释义两两连线，路径判定，限时",
-      "rulesMd": "",
+      "rulesMd": "## 怎么玩\n连连看：两列分别为术语与释义，点击两个可连通（路径转折不超过 2 次）的元素即可连线消除，限时完成。\n\n## 需要哪些数据\n配对数据（pairs）：术语与释义对，由题库 matching/single 题自动转换。\n\n## 数据生成规则\n- 左右两列元素随机排列，配对唯一；\n- 路径判定与经典连连看一致；\n- 判分按配对 key 上报服务端。\n\n## 接入方式\niframe 加载 `/t/link-link/index.html`，postMessage 协议 kp-game-v1：HOST_INIT 附带 pairsSource → GAME_READY → GAME_RESULT。",
       "entryPath": "index.html",
       "allowedSubjects": [
         "math",
