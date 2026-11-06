@@ -1,0 +1,1 @@
+{"name":"E2E 测试模板 u1-e2e-mw4pr7xj","entry":"index.html","allowed_subjects":["math"],"allowed_grades":["g1","g2"],"version":"1.0.0","mode":"quiz","category":"E2E","question_types":["single","judge"],"data":"questions","rules_md":"e2e 测试"}
