@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>答题</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, 'PingFang SC', sans-serif; background: #f5f6fa; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 16px; }
+  .app { width: 100%; max-width: 560px; background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+  .tag { display: inline-block; font-size: 12px; color: #888; border: 1px solid #ddd; padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; }
+  .stem { font-size: 16px; line-height: 1.6; margin-bottom: 14px; white-space: pre-wrap; }
+  .opt { display: block; width: 100%; text-align: left; padding: 11px 13px; margin-bottom: 9px; border: 2px solid #e3e3ec; border-radius: 10px; background: #fbfbff; font-size: 15px; cursor: pointer; }
+  .opt:hover { border-color: #4a7cf6; }
+  .opt.picked { border-color: #4a7cf6; background: #eef3ff; }
+  .judge { display: flex; gap: 10px; }
+  .judge .opt { text-align: center; font-weight: 700; }
+  .progress { font-size: 13px; color: #888; margin-bottom: 8px; }
+  .final { text-align: center; padding: 26px 0; }
+  .final h1 { color: #333; }
+  .final p { color: #888; margin-top: 6px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="play">
+    <span class="tag">简版模式</span>
+    <div class="progress" id="progress"></div>
+    <div class="stem" id="stem"></div>
+    <div id="opts"></div>
+  </div>
+  <div id="done" class="final hidden">
+    <h1>已答完</h1>
+    <p id="finalText">正在结算…</p>
+  </div>
+</div>
+<script src="../shared/protocol.js"></script>
+<script>
+/**
+ * 简版降级外壳（T063）：正式模板 15s 未就绪时由宿主切换到本页。
+ * 最小 quiz 外壳：任何题目数据可作答、可结算；无花哨样式，保证可用性优先。
+ */
+(function () {
+  'use strict'
+  var DEFAULT_DATA = {
+    questions: [{ seq: 1, type: 'single', stem: '示例：1 + 1 = ?', options: [{ key: 'A', text: '2' }, { key: 'B', text: '3' }] }],
+  }
+  var questions = []
+  var idx = 0
+  var answers = []
+  var startedAt = 0
+
+  function $(id) { return document.getElementById(id) }
+
+  window.GameProtocol.boot({
+    onInit: function (data) {
+      questions = (data && data.questions && data.questions.length ? data.questions : DEFAULT_DATA.questions).slice()
+      GameProtocol.ready()
+    },
+    onStart: function () {
+      startedAt = Date.now()
+      render()
+    },
+  }, DEFAULT_DATA)
+
+  function render() {
+    $('progress').textContent = (idx + 1) + ' / ' + questions.length
+    var q = questions[idx]
+    $('stem').textContent = q.stem
+    var wrap = $('opts')
+    wrap.innerHTML = ''
+    wrap.className = q.type === 'judge' ? 'judge' : ''
+    var opts = q.options && q.options.length ? q.options : [{ key: 'true', text: '对' }, { key: 'false', text: '错' }]
+    opts.forEach(function (o) {
+      var b = document.createElement('button')
+      b.className = 'opt'
+      b.textContent = (q.type === 'judge' ? '' : o.key + '. ') + o.text
+      b.onclick = function () {
+        answers.push({ seq: q.seq, answer: o.key })
+        idx++
+        if (idx >= questions.length) finish()
+        else render()
+      }
+      wrap.appendChild(b)
+    })
+  }
+
+  function finish() {
+    $('play').classList.add('hidden')
+    $('done').classList.remove('hidden')
+    GameProtocol.result({
+      score: null,
+      total: questions.length,
+      durationMs: Date.now() - startedAt,
+      answers: answers,
+    })
+  }
+})()
+</script>
+</body>
+</html>

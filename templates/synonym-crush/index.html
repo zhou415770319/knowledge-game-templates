@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>同义词消消乐</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, 'PingFang SC', sans-serif; background: linear-gradient(160deg, #f5576c, #f093fb); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 12px; }
+  .app { width: 100%; max-width: 640px; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .top { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; color: #c0392b; margin-bottom: 12px; }
+  .cols { display: flex; gap: 12px; }
+  .col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .col h4 { text-align: center; color: #999; font-size: 13px; }
+  .item { padding: 12px 8px; border-radius: 10px; border: 2px solid #f3c1c9; background: #fff5f6; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; word-break: break-all; }
+  .item.sel { border-color: #f5576c; background: #ffe3e8; transform: scale(1.03); }
+  .item.gone { opacity: 0; transform: scale(.3); pointer-events: none; transition: all .4s; }
+  .combo { text-align: center; height: 24px; color: #e67e22; font-weight: 800; font-size: 15px; margin-top: 8px; }
+  .final { text-align: center; padding: 30px 0; }
+  .final h1 { color: #c0392b; font-size: 40px; margin: 8px 0; }
+  .final p { color: #888; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="play">
+    <div class="top">
+      <span id="timer">⏱ 00:00</span>
+      <span id="progress">消除 0/0 · 连击 x1</span>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>词语</h4><div id="left"></div></div>
+      <div class="col"><h4>同义 / 释义</h4><div id="right"></div></div>
+    </div>
+    <div class="combo" id="combo"></div>
+  </div>
+  <div id="done" class="final hidden">
+    <h1 id="finalScore"></h1>
+    <p id="finalText"></p>
+  </div>
+</div>
+<script src="../shared/protocol.js"></script>
+<script>
+/**
+ * 同义词消消乐（T056，game-native，仅语文）
+ * 左右两列配对消除；连续消除触发连击加成；答对的词组按 key 上报由服务端判分。
+ */
+(function () {
+  'use strict'
+  var DEFAULT_DATA = {
+    game: { title: '同义词消消乐（示例）' },
+    pairsSource: [
+      { seq: 1, left: '美丽', right: '漂亮', key: '漂亮' },
+      { seq: 2, left: '开心', right: '快乐', key: '快乐' },
+      { seq: 3, left: '立刻', right: '马上', key: '马上' },
+      { seq: 4, left: '著名', right: '有名', key: '有名' },
+      { seq: 5, left: '帮助', right: '协助', key: '协助' },
+    ],
+  }
+
+  var pairs = []
+  var selL = null
+  var selR = null
+  var matched = 0
+  var combo = 0
+  var maxCombo = 0
+  var matchedKeys = []
+  var startedAt = 0
+  var tick = null
+
+  function $(id) { return document.getElementById(id) }
+
+  window.GameProtocol.boot({
+    onInit: function (data) {
+      pairs = (data && data.pairsSource && data.pairsSource.length ? data.pairsSource : DEFAULT_DATA.pairsSource).slice()
+      build()
+      GameProtocol.ready()
+    },
+    onStart: function () {
+      startedAt = Date.now()
+      tick = setInterval(function () {
+        var s = Math.floor((Date.now() - startedAt) / 1000)
+        $('timer').textContent = '⏱ ' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+      }, 500)
+    },
+  }, DEFAULT_DATA)
+
+  function build() {
+    $('progress').textContent = '消除 0/' + pairs.length + ' · 连击 x1'
+    var L = $('left'), R = $('right')
+    L.innerHTML = ''; R.innerHTML = ''
+    var rights = pairs.slice().sort(function () { return Math.random() - 0.5 })
+    pairs.forEach(function (p) {
+      var el = document.createElement('div')
+      el.className = 'item'; el.textContent = p.left
+      el.onclick = function () { pick('L', p, el) }
+      el.dataset.seq = p.seq
+      L.appendChild(el)
+    })
+    rights.forEach(function (p) {
+      var el = document.createElement('div')
+      el.className = 'item'; el.textContent = p.right
+      el.onclick = function () { pick('R', p, el) }
+      el.dataset.seq = p.seq
+      R.appendChild(el)
+    })
+  }
+
+  function pick(side, p, el) {
+    if (el.classList.contains('gone')) return
+    if (side === 'L') {
+      if (selL) selL.classList.remove('sel')
+      selL = el; selL.classList.add('sel')
+    } else {
+      if (selR) selR.classList.remove('sel')
+      selR = el; selR.classList.add('sel')
+    }
+    if (selL && selR) {
+      var pl = Number(selL.dataset.seq)
+      var pr = Number(selR.dataset.seq)
+      if (pl === pr) {
+        combo++
+        maxCombo = Math.max(maxCombo, combo)
+        var pair = pairs.find(function (x) { return x.seq === pl })
+        matchedKeys.push({ seq: pair.seq, answer: pair.key })
+        matched++
+        selL.classList.add('gone'); selR.classList.add('gone')
+        selL = selR = null
+        $('progress').textContent = '消除 ' + matched + '/' + pairs.length + ' · 连击 x' + combo
+        $('combo').textContent = combo >= 2 ? '🔥 连击 x' + combo + '！' : ''
+        if (matched === pairs.length) finish()
+      } else {
+        combo = 0
+        $('progress').textContent = '消除 ' + matched + '/' + pairs.length + ' · 连击 x1'
+        $('combo').textContent = ''
+        setTimeout(function () {
+          if (selL) selL.classList.remove('sel')
+          if (selR) selR.classList.remove('sel')
+          selL = selR = null
+        }, 350)
+      }
+    }
+  }
+
+  function finish() {
+    clearInterval(tick)
+    var dur = Date.now() - startedAt
+    $('play').classList.add('hidden')
+    $('done').classList.remove('hidden')
+    $('finalScore').textContent = matched + ' / ' + pairs.length
+    $('finalText').textContent = '用时 ' + Math.round(dur / 1000) + ' 秒 · 最大连击 x' + maxCombo + '，正在结算…'
+    GameProtocol.result({
+      score: matched + Math.max(0, maxCombo - 1), // 连击加成
+      total: pairs.length,
+      durationMs: dur,
+      answers: matchedKeys,
+      extra: { maxCombo: maxCombo },
+    })
+  }
+})()
+</script>
+</body>
+</html>

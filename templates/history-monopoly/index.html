@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>知识大富翁</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, 'PingFang SC', sans-serif; background: linear-gradient(160deg, #4b6cb7, #182848); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 12px; }
+  .app { width: 100%; max-width: 640px; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+  .top { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; color: #182848; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .tile { aspect-ratio: 1; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #eef1f8; position: relative; border: 2px solid transparent; }
+  .tile.me { border-color: #4b6cb7; box-shadow: 0 0 0 2px #cdd9f3; }
+  .tile.own { background: #d9f7ec; }
+  .tile .q { font-size: 10px; position: absolute; bottom: 3px; color: #999; }
+  .dice-row { text-align: center; margin-top: 12px; }
+  .dice { font-size: 40px; display: inline-block; }
+  .roll { margin-left: 14px; padding: 10px 26px; border: 0; border-radius: 10px; background: #4b6cb7; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .roll:disabled { opacity: .5; cursor: default; }
+  /* 答题弹层 */
+  .mask { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 9; }
+  .quiz { background: #fff; border-radius: 14px; padding: 18px; width: 100%; max-width: 480px; max-height: 86vh; overflow: auto; }
+  .quiz .stem { font-size: 16px; line-height: 1.5; margin-bottom: 12px; white-space: pre-wrap; }
+  .opt { display: block; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 8px; border: 2px solid #e5e5ee; border-radius: 10px; background: #fafafe; font-size: 14px; cursor: pointer; }
+  .opt:hover { border-color: #4b6cb7; }
+  .judge { display: flex; gap: 10px; }
+  .judge .opt { text-align: center; font-weight: 700; }
+  .final { text-align: center; padding: 30px 0; }
+  .final h1 { color: #182848; font-size: 40px; margin: 8px 0; }
+  .final p { color: #888; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="play">
+    <div class="top">
+      <span>💰 金币 <b id="coins">0</b></span>
+      <span>🏰 地产 <b id="lands">0</b></span>
+      <span id="qleft">答题 0/0</span>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="dice-row">
+      <span class="dice" id="dice">🎲</span>
+      <button class="roll" id="rollBtn">掷骰子</button>
+    </div>
+  </div>
+  <div class="mask hidden" id="mask">
+    <div class="quiz">
+      <div class="stem" id="stem"></div>
+      <div id="opts"></div>
+    </div>
+  </div>
+  <div id="done" class="final hidden">
+    <h1 id="finalScore"></h1>
+    <p id="finalText"></p>
+  </div>
+</div>
+<script src="../shared/protocol.js"></script>
+<script>
+/**
+ * 知识大富翁（T057，hybrid）
+ * 5×5 环形棋盘：掷骰前进，落「?」格弹题答题，答对得金币 + 占地，答错扣金币。
+ * 题目答完或绕满一圈结束；选项答案上报由服务端判分。
+ */
+(function () {
+  'use strict'
+  var DEFAULT_DATA = {
+    game: { title: '知识大富翁（示例）' },
+    questions: [
+      { seq: 1, type: 'single', stem: '示例：中国的首都是？', options: [{ key: 'A', text: '上海' }, { key: 'B', text: '北京' }, { key: 'C', text: '广州' }] },
+      { seq: 2, type: 'judge', stem: '示例：一年有四个季节。', options: [{ key: 'true', text: '对' }, { key: 'false', text: '错' }] },
+      { seq: 3, type: 'single', stem: '示例：8 × 7 = ?', options: [{ key: 'A', text: '54' }, { key: 'B', text: '56' }, { key: 'C', text: '58' }] },
+      { seq: 4, type: 'single', stem: '示例：太阳从哪边升起？', options: [{ key: 'A', text: '东' }, { key: 'B', text: '西' }, { key: 'C', text: '南' }] },
+    ],
+  }
+
+  var SIZE = 20
+  var questions = []
+  var qIdx = 0
+  var pos = 0
+  var coins = 0
+  var lands = {}
+  var answers = []
+  var startedAt = 0
+  var rolling = false
+
+  function $(id) { return document.getElementById(id) }
+
+  window.GameProtocol.boot({
+    onInit: function (data) {
+      questions = (data && data.questions && data.questions.length ? data.questions : DEFAULT_DATA.questions).slice()
+      $('qleft').textContent = '答题 0/' + questions.length
+      buildBoard()
+      GameProtocol.ready()
+    },
+    onStart: function () {
+      startedAt = Date.now()
+      moveMe()
+    },
+  }, DEFAULT_DATA)
+
+  function buildBoard() {
+    var board = $('board')
+    board.innerHTML = ''
+    for (var i = 0; i < SIZE; i++) {
+      var t = document.createElement('div')
+      t.className = 'tile'
+      t.id = 'tile' + i
+      if (i % 5 === 0) { t.textContent = '🎁'; t.title = '奖励格：得 10 金币' }
+      else { t.innerHTML = '?<span class="q">题</span>' }
+      board.appendChild(t)
+    }
+  }
+
+  function moveMe() {
+    document.querySelectorAll('.tile.me').forEach(function (el) { el.classList.remove('me') })
+    document.getElementById('tile' + pos).classList.add('me')
+  }
+
+  $('rollBtn').onclick = function () {
+    if (rolling) return
+    rolling = true
+    $('rollBtn').disabled = true
+    var n = 1 + Math.floor(Math.random() * 6)
+    var anim = 0
+    var iv = setInterval(function () {
+      $('dice').textContent = '🎲'[0] + ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][Math.floor(Math.random() * 6)]
+      if (++anim > 8) {
+        clearInterval(iv)
+        $('dice').textContent = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][n - 1]
+        step(n)
+      }
+    }, 80)
+  }
+
+  function step(n) {
+    var iv = setInterval(function () {
+      pos = (pos + 1) % SIZE
+      moveMe()
+      if (--n <= 0) {
+        clearInterval(iv)
+        setTimeout(land, 250)
+      }
+    }, 160)
+  }
+
+  function land() {
+    if (pos % 5 === 0) {
+      coins += 10
+      updateTop()
+      endTurn('🎁 奖励格，得 10 金币！')
+      return
+    }
+    if (qIdx >= questions.length) return finish()
+    // 落题格：若该格已有地产且属自己 → 直接收租 5 金币
+    if (lands[pos]) {
+      coins += 5
+      updateTop()
+      endTurn('回到自己的地产，收租 5 金币！')
+      return
+    }
+    showQuestion()
+  }
+
+  function showQuestion() {
+    var q = questions[qIdx]
+    $('stem').textContent = q.stem
+    var wrap = $('opts')
+    wrap.innerHTML = ''
+    wrap.className = q.type === 'judge' ? 'judge' : ''
+    var opts = q.options && q.options.length ? q.options : [{ key: 'true', text: '对' }, { key: 'false', text: '错' }]
+    opts.forEach(function (o) {
+      var b = document.createElement('button')
+      b.className = 'opt'
+      b.textContent = (q.type === 'judge' ? '' : o.key + '. ') + o.text
+      b.onclick = function () { answer(q, o.key) }
+      wrap.appendChild(b)
+    })
+    $('mask').classList.remove('hidden')
+  }
+
+  function answer(q, key) {
+    answers.push({ seq: q.seq, answer: key })
+    // 本地不判对错（宿主不下发答案），占用地产 + 得基础金币，服务端结算后修正得分
+    lands[pos] = true
+    document.getElementById('tile' + pos).classList.add('own')
+    coins += 10
+    qIdx++
+    updateTop()
+    $('mask').classList.add('hidden')
+    if (qIdx >= questions.length) return setTimeout(finish, 400)
+    endTurn('已作答，继续！')
+  }
+
+  function endTurn(msg) {
+    $('dice').textContent = (Math.random() < .5 ? '🎯 ' : '✨ ') + msg.slice(0, 2)
+    $('rollBtn').textContent = msg.length > 14 ? msg.slice(0, 14) + '…' : msg
+    $('rollBtn').disabled = false
+    rolling = false
+  }
+
+  function updateTop() {
+    $('coins').textContent = coins
+    $('lands').textContent = Object.keys(lands).length
+    $('qleft').textContent = '答题 ' + qIdx + '/' + questions.length
+  }
+
+  function finish() {
+    var dur = Date.now() - startedAt
+    $('play').classList.add('hidden')
+    $('mask').classList.add('hidden')
+    $('done').classList.remove('hidden')
+    $('finalScore').textContent = coins + ' 金币'
+    $('finalText').textContent = '占地 ' + Object.keys(lands).length + ' 块 · 用时 ' + Math.round(dur / 1000) + ' 秒，正在结算…'
+    GameProtocol.result({
+      score: coins,
+      total: questions.length,
+      durationMs: dur,
+      answers: answers,
+      extra: { lands: Object.keys(lands).length },
+    })
+  }
+})()
+</script>
+</body>
+</html>

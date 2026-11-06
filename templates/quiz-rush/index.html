@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>选择题闯关</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, 'PingFang SC', sans-serif; background: linear-gradient(160deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 12px; }
+  .app { width: 100%; max-width: 640px; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .hearts { color: #e74c3c; font-size: 18px; letter-spacing: 2px; }
+  .score { font-weight: 700; color: #5b4b9e; font-size: 16px; }
+  .bar { height: 8px; border-radius: 4px; background: #eee; margin-bottom: 16px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0; transition: width .3s; }
+  .stem { font-size: 17px; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap; }
+  .opt { display: block; width: 100%; text-align: left; padding: 12px 14px; margin-bottom: 10px; border: 2px solid #e5e5ee; border-radius: 10px; background: #fafafe; font-size: 15px; cursor: pointer; transition: all .15s; }
+  .opt:hover { border-color: #667eea; }
+  .opt.correct { border-color: #2ecc71; background: #eafaf1; }
+  .opt.wrong { border-color: #e74c3c; background: #fdedec; }
+  .opt:disabled { cursor: default; opacity: .85; }
+  .analysis { margin-top: 8px; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+  .analysis.good { background: #eafaf1; color: #1e8449; }
+  .analysis.bad { background: #fdedec; color: #c0392b; }
+  .judge { display: flex; gap: 12px; }
+  .judge .opt { text-align: center; font-size: 18px; font-weight: 700; }
+  .next { margin-top: 12px; width: 100%; padding: 12px; border: 0; border-radius: 10px; background: #667eea; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; display: none; }
+  .final { text-align: center; padding: 24px 0; }
+  .final h1 { font-size: 44px; color: #5b4b9e; margin: 8px 0; }
+  .final p { color: #888; margin-bottom: 6px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="play">
+    <div class="top">
+      <span class="hearts" id="hearts">❤❤❤</span>
+      <span class="score" id="score">0 分</span>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="stem" id="stem"></div>
+    <div id="opts"></div>
+    <div class="analysis" id="analysis" style="display:none"></div>
+    <button class="next" id="next">下一题 →</button>
+  </div>
+  <div id="done" class="final hidden">
+    <h1 id="finalScore">0</h1>
+    <p id="finalText"></p>
+  </div>
+</div>
+<script src="../shared/protocol.js"></script>
+<script>
+(function () {
+  'use strict'
+  var DEFAULT_DATA = {
+    game: { title: '选择题闯关（示例）' },
+    questions: [
+      { seq: 1, type: 'single', stem: '示例：3 + 5 = ?', options: [{ key: 'A', text: '6' }, { key: 'B', text: '7' }, { key: 'C', text: '8' }, { key: 'D', text: '9' }], difficulty: 1 },
+      { seq: 2, type: 'judge', stem: '示例：一年有 12 个月。', options: [{ key: 'true', text: '对' }, { key: 'false', text: '错' }], difficulty: 1 },
+      { seq: 3, type: 'single', stem: '示例：最小的质数是？', options: [{ key: 'A', text: '0' }, { key: 'B', text: '1' }, { key: 'C', text: '2' }, { key: 'D', text: '3' }], difficulty: 2 },
+    ],
+  }
+
+  var questions = []
+  var idx = 0
+  var score = 0
+  var answers = []
+  var startedAt = 0
+  var locked = false
+  var gp = null
+
+  function $(id) { return document.getElementById(id) }
+
+  window.GameProtocol.boot({
+    onInit: function (data) {
+      questions = (data && data.questions && data.questions.length ? data.questions : DEFAULT_DATA.questions).slice()
+      renderTop()
+      renderQuestion()
+      GameProtocol.ready()
+    },
+    onStart: function () {
+      startedAt = Date.now()
+    },
+  }, DEFAULT_DATA)
+
+  function renderTop() {
+    $('score').textContent = score + ' 分'
+    $('bar').style.width = (questions.length ? (idx / questions.length) * 100 : 0) + '%'
+  }
+
+  function renderQuestion() {
+    locked = false
+    $('analysis').style.display = 'none'
+    $('next').style.display = 'none'
+    var q = questions[idx]
+    $('stem').textContent = q.stem
+    var wrap = $('opts')
+    wrap.innerHTML = ''
+    wrap.className = q.type === 'judge' ? 'judge' : ''
+    var opts = (q.options && q.options.length ? q.options : [{ key: 'true', text: '对' }, { key: 'false', text: '错' }])
+    opts.forEach(function (o) {
+      var b = document.createElement('button')
+      b.className = 'opt'
+      b.textContent = (q.type === 'judge' ? '' : o.key + '. ') + o.text
+      b.onclick = function () { pick(o.key, b) }
+      wrap.appendChild(b)
+    })
+    renderTop()
+  }
+
+  function pick(key, btn) {
+    if (locked) return
+    locked = true
+    answers.push({ seq: questions[idx].seq, answer: key })
+    // 无答案模式（宿主不下发）：本模板不判对错，仅收集答案，结算交给宿主。
+    // 有答案（独立试玩默认数据带 key 提示）时可本地高亮；这里统一交给宿主判分。
+    btn.classList.add('picked')
+    setTimeout(next, 120)
+  }
+
+  function next() {
+    idx++
+    renderTop()
+    if (idx >= questions.length) return finish()
+    renderQuestion()
+  }
+
+  function finish() {
+    $('play').classList.add('hidden')
+    $('done').classList.remove('hidden')
+    $('finalText').textContent = '正在结算…'
+    GameProtocol.result({
+      score: null, // 由宿主（服务端）判分
+      total: questions.length,
+      durationMs: Date.now() - startedAt,
+      answers: answers,
+    })
+  }
+})()
+</script>
+</body>
+</html>

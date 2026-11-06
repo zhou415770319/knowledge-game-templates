@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>记忆翻牌配对</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, 'PingFang SC', sans-serif; background: linear-gradient(160deg, #11998e, #38ef7d); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 12px; }
+  .app { width: 100%; max-width: 680px; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .top { display: flex; justify-content: space-between; font-size: 14px; color: #0b6b5d; font-weight: 600; margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .card { aspect-ratio: 1; perspective: 600px; cursor: pointer; }
+  .inner { position: relative; width: 100%; height: 100%; transition: transform .35s; transform-style: preserve-3d; }
+  .card.open .inner, .card.done .inner { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 6px; font-size: 12px; line-height: 1.3; text-align: center; overflow: hidden; }
+  .front { background: linear-gradient(135deg, #11998e, #38ef7d); color: #fff; font-size: 22px; }
+  .back { background: #f4f9f8; border: 2px solid #11998e; transform: rotateY(180deg); word-break: break-all; }
+  .card.done .back { background: #d9f7ec; border-color: #2ecc71; }
+  .final { text-align: center; padding: 30px 0; }
+  .final h1 { color: #0b6b5d; font-size: 40px; margin: 8px 0; }
+  .final p { color: #888; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="play">
+    <div class="top">
+      <span id="timer">⏱ 00:00</span>
+      <span id="progress">配对 0/0</span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div id="done" class="final hidden">
+    <h1 id="finalScore"></h1>
+    <p id="finalText"></p>
+  </div>
+</div>
+<script src="../shared/protocol.js"></script>
+<script>
+/**
+ * 记忆翻牌配对（T054，game-native）
+ * 知识即游戏元素：题目对（左=题干/术语，右=答案/释义）来自宿主下发的 pairsSource，
+ * 无数据时用内置示例。答对的一对在结算时按 key 上报（服务端按快照判分）。
+ */
+(function () {
+  'use strict'
+  var DEFAULT_DATA = {
+    game: { title: '记忆翻牌配对（示例）' },
+    pairsSource: [
+      { seq: 1, left: '3 + 4 = ?', right: '7', key: '7' },
+      { seq: 2, left: '一周有几天', right: '7天', key: '7天' },
+      { seq: 3, left: '正方形几条边', right: '4条', key: '4条' },
+      { seq: 4, left: '1米 = 几厘米', right: '100厘米', key: '100厘米' },
+      { seq: 5, left: '半圆的角度', right: '180°', key: '180°' },
+      { seq: 6, left: '最小的奇数', right: '1', key: '1' },
+    ],
+  }
+
+  var pairs = []
+  var cards = [] // {pairIdx, side:'L'|'R', el, done}
+  var open = []
+  var matched = 0
+  var matchedKeys = []
+  var timer = 0
+  var tick = null
+  var startedAt = 0
+
+  function $(id) { return document.getElementById(id) }
+
+  window.GameProtocol.boot({
+    onInit: function (data) {
+      pairs = (data && data.pairsSource && data.pairsSource.length ? data.pairsSource : DEFAULT_DATA.pairsSource).slice()
+      build()
+      GameProtocol.ready()
+    },
+    onStart: function () {
+      startedAt = Date.now()
+      tick = setInterval(function () {
+        var s = Math.floor((Date.now() - startedAt) / 1000)
+        $('timer').textContent = '⏱ ' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+      }, 500)
+    },
+  }, DEFAULT_DATA)
+
+  function build() {
+    cards = []
+    pairs.forEach(function (p, i) {
+      cards.push({ pairIdx: i, side: 'L', text: p.left })
+      cards.push({ pairIdx: i, side: 'R', text: p.right })
+    })
+    shuffle(cards)
+    var grid = $('grid')
+    var cols = pairs.length <= 4 ? 4 : 4
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)'
+    grid.innerHTML = ''
+    $('progress').textContent = '配对 0/' + pairs.length
+    cards.forEach(function (c, i) {
+      var el = document.createElement('div')
+      el.className = 'card'
+      el.innerHTML = '<div class="inner"><div class="face front">?</div><div class="face back"></div></div>'
+      el.querySelector('.back').textContent = c.text
+      el.onclick = function () { flip(c, el) }
+      c.el = el
+      grid.appendChild(el)
+    })
+  }
+
+  function flip(c, el) {
+    if (c.done || el.classList.contains('open') || open.length >= 2) return
+    el.classList.add('open')
+    open.push({ c: c, el: el })
+    if (open.length < 2) return
+    var a = open[0], b = open[1]
+    if (a.c.pairIdx === b.c.pairIdx && a.c.side !== b.c.side) {
+      a.c.done = b.c.done = true
+      a.el.classList.add('done')
+      b.el.classList.add('done')
+      matched++
+      var p = pairs[a.c.pairIdx]
+      matchedKeys.push({ seq: p.seq, answer: p.key })
+      $('progress').textContent = '配对 ' + matched + '/' + pairs.length
+      open = []
+      if (matched === pairs.length) finish()
+    } else {
+      setTimeout(function () {
+        a.el.classList.remove('open')
+        b.el.classList.remove('open')
+        open = []
+      }, 700)
+    }
+  }
+
+  function finish() {
+    clearInterval(tick)
+    var dur = Date.now() - startedAt
+    $('play').classList.add('hidden')
+    $('done').classList.remove('hidden')
+    $('finalScore').textContent = matched + ' / ' + pairs.length
+    $('finalText').textContent = '用时 ' + Math.round(dur / 1000) + ' 秒，正在结算…'
+    GameProtocol.result({
+      score: matched,
+      total: pairs.length,
+      durationMs: dur,
+      answers: matchedKeys,
+    })
+  }
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1))
+      var t = a[i]; a[i] = a[j]; a[j] = t
+    }
+  }
+})()
+</script>
+</body>
+</html>
